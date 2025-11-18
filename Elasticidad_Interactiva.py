@@ -1,134 +1,131 @@
 import streamlit as st
-import numpy as np
 import plotly.graph_objects as go
+import numpy as np
 
 # ------------------------------
-#     CONFIGURACIÓN DE LA PÁGINA
+# Funciones de microeconomía
 # ------------------------------
-st.set_page_config(
-    page_title="Elasticidad de la Demanda",
-    layout="centered"
-)
 
-st.title("📊 Elasticidad Precio de la Demanda (App Interactiva)")
-st.write("Modifica el precio y observa cómo se desplazan los puntos en las gráficas.")
+def demanda_lineal(a, b, elasticidad):
+    """
+    Genera una curva de demanda con elasticidad controlada.
+    """
+    p = np.linspace(1, a, 200)
+    q = a - b * p
+    q = np.maximum(q, 0)
 
-# ------------------------------
-#     FUNCIONES
-# ------------------------------
-def calcular_q_desde_p(p):
-    return 100 - 2 * p
+    # Ajuste de elasticidad “lógica”
+    q = q ** (1 / elasticidad)
+    return p, q
 
-def calcular_p_desde_q(q):
-    return 50 - 0.5 * q
+def oferta_lineal(c, d):
+    p = np.linspace(1, 40, 200)
+    q = d * p - c
+    q = np.maximum(q, 0)
+    return p, q
 
-# ------------------------------
-#     SLIDER
-# ------------------------------
-precio = st.slider(
-    "Selecciona el Precio (P):",
-    min_value=1.0,
-    max_value=49.0,
-    value=25.0,
-    step=0.5
-)
-
-q = calcular_q_desde_p(precio)
-it = precio * q
-
-# Elasticidad
-dq_dp = -2
-elasticidad = dq_dp * (precio / q)
-
-# Tipo de elasticidad
-if abs(elasticidad) > 1:
-    color_el = "green"
-    tipo_texto = "Demanda Elástica"
-elif abs(elasticidad) < 1:
-    color_el = "red"
-    tipo_texto = "Demanda Inelástica"
-else:
-    color_el = "blue"
-    tipo_texto = "Demanda Unitaria"
+def calcular_elasticidad(p, q):
+    pct_q = (q[1] - q[0]) / q[0]
+    pct_p = (p[1] - p[0]) / p[0]
+    return pct_q / pct_p
 
 # ------------------------------
-#     MÉTRICAS
+# Interfaz Streamlit
 # ------------------------------
-col1, col2, col3 = st.columns(3)
-col1.metric("Precio (P)", f"${precio:.2f}")
-col2.metric("Cantidad (Q)", f"{q:.1f} unidades")
-col3.metric("Ingreso Total (IT)", f"${it:.2f}")
+st.title("📈 Simulador Visual de Elasticidad (Microeconomía)")
+st.write("")
+st.write("Modifica los parámetros y observa cómo cambia la elasticidad y la forma de la curva.")
 
-st.markdown(
-    f"<h4 style='color:{color_el}; text-align:center;'>{tipo_texto}</h4>",
-    unsafe_allow_html=True
-)
+tab1, tab2 = st.tabs(["Elasticidad Precio de la Demanda", "Elasticidad Ingreso"])
 
 # ------------------------------
-#     DATOS PARA GRÁFICAS
+# TAB 1: ELASTICIDAD PRECIO
 # ------------------------------
-q_vals = np.linspace(0.1, 100, 200)
-p_vals = calcular_p_desde_q(q_vals)
-it_vals = q_vals * calcular_p_desde_q(q_vals)
+with tab1:
+    st.header("Elasticidad Precio de la Demanda")
 
-# ------------------------------
-#     GRÁFICA 1 — DEMANDA (P vs Q)
-# ------------------------------
-fig1 = go.Figure()
+    col1, col2 = st.columns(2)
 
-# Curva de demanda
-fig1.add_trace(go.Scatter(
-    x=q_vals, y=p_vals,
-    mode="lines",
-    line=dict(color="royalblue", width=3),
-    name="Curva de Demanda"
-))
+    with col1:
+        a = st.slider("Intercepto (a)", 20, 100, 60)
+        b = st.slider("Pendiente (b)", 1, 10, 3)
+        elasticidad = st.slider("Elasticidad (E)", 0.5, 3.0, 1.0, 0.1)
 
-# Punto dinámico
-fig1.add_trace(go.Scatter(
-    x=[q], y=[precio],
-    mode="markers",
-    marker=dict(size=16, color="crimson"),
-    name="Punto actual"
-))
+    p, q = demanda_lineal(a, b, elasticidad)
+    E = calcular_elasticidad(p, q)
 
-fig1.update_layout(
-    title="Curva de Demanda (P vs Q)",
-    xaxis_title="Cantidad (Q)",
-    yaxis_title="Precio (P)",
-    template="plotly_white",
-    height=450
-)
+    # ------------------------------
+    # GRAFICA
+    # ------------------------------
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=q, y=p, mode="lines", name="Demanda"))
 
-# ------------------------------
-#     GRÁFICA 2 — INGRESO TOTAL (IT)
-# ------------------------------
-fig2 = go.Figure()
+    fig.update_layout(
+        xaxis_title="Cantidad (Q)",
+        yaxis_title="Precio (P)",
+        title=f"Curva de Demanda – Elasticidad calculada: {E:.2f}",
+        height=500
+    )
 
-fig2.add_trace(go.Scatter(
-    x=q_vals, y=it_vals,
-    mode="lines",
-    line=dict(color="green", width=3),
-    name="Ingreso Total"
-))
+    st.plotly_chart(fig, use_container_width=True)
 
-fig2.add_trace(go.Scatter(
-    x=[q], y=[it],
-    mode="markers",
-    marker=dict(size=16, color="crimson"),
-    name="Punto actual"
-))
+    # ------------------------------
+    # EXPLICACIÓN
+    # ------------------------------
+    st.subheader("Explicación económica")
 
-fig2.update_layout(
-    title="Ingreso Total (IT = P × Q)",
-    xaxis_title="Cantidad (Q)",
-    yaxis_title="IT ($)",
-    template="plotly_white",
-    height=450
-)
+    if E > 1:
+        st.success("**Demanda elástica (>1):** una pequeña variación en el precio genera un cambio proporcionalmente mayor en la cantidad. La curva es más plana.")
+    elif E < 1:
+        st.info("**Demanda inelástica (<1):** la cantidad cambia poco frente a variaciones en precio. La curva es empinada.")
+    else:
+        st.warning("**Elasticidad unitaria (=1):** el cambio porcentual en cantidad es igual al cambio porcentual en precio.")
+
+    st.write("""
+    **Interpretación:**  
+    - El intercepto *a* y la pendiente *b* cambian la forma básica de la curva.  
+    - El parámetro de **elasticidad** ajusta cuán sensible es la cantidad ante cambios en el precio.  
+    - La gráfica se actualiza en tiempo real mostrando estos efectos.
+    """)
 
 # ------------------------------
-#     MOSTRAR GRÁFICAS
+# TAB 2: ELASTICIDAD INGRESO
 # ------------------------------
-st.plotly_chart(fig1, use_container_width=True)
-st.plotly_chart(fig2, use_container_width=True)
+with tab2:
+    st.header("Elasticidad Ingreso")
+
+    col1, col2 = st.columns(2)
+    with col1:
+        m = st.slider("Ingreso del consumidor (M)", 100, 2000, 800)
+        y = st.slider("Sensibilidad del bien al ingreso (k)", -3.0, 3.0, 1.0, 0.1)
+
+    precios = np.linspace(1, 50, 200)
+    cantidades = (m / precios) ** y
+
+    fig2 = go.Figure()
+    fig2.add_trace(go.Scatter(x=precios, y=cantidades, mode="lines", name="Curva ingreso"))
+
+    fig2.update_layout(
+        xaxis_title="Precio",
+        yaxis_title="Cantidad demandada",
+        title="Elasticidad Ingreso",
+        height=500
+    )
+
+    st.plotly_chart(fig2, use_container_width=True)
+
+    st.subheader("Explicación económica")
+
+    if y > 0:
+        st.success("**Bien normal:** cuando aumenta el ingreso, aumenta la demanda.")
+    elif y < 0:
+        st.error("**Bien inferior:** cuando sube el ingreso, la demanda cae.")
+    else:
+        st.info("**Elasticidad cero:** la demanda no depende del ingreso.")
+
+    st.write("""
+    **Interpretación:**  
+    - La elasticidad ingreso determina si el bien es normal o inferior.  
+    - La gráfica muestra cómo cambia la cantidad demandada cuando el ingreso varía.  
+    """)
+
